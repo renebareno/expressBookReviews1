@@ -1,0 +1,2 @@
+a@theia-renebareno:/home/project$ curl http://localhost:5000/isbn/3
+"{\"author\":\"Dante Alighieri\",\"title\":\"The Divine Comedy\",\"reviews\":{}}"

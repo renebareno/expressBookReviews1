@@ -1,0 +1,8 @@
+theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/register   -H "Content-Type: application/json"   -d '{"username": "", "password": "123456"}'
+no username
+theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/register   -H "Conapplication/json"   -d '{"username": "hol", "password": ""}'
+no password
+theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/register   -H "Conapplication/json"   -d '{"username": "hol", "password": "1234"}'
+The user hol has been added!
+theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/rapplication/json"   -d '{"username": "hol", "password": "1234"}'
+Repeated username
