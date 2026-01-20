@@ -16,7 +16,7 @@ const authenticatedUser = (username, password) => { //returns boolean
 //only registered users can login
 regd_users.post("/login", (req, res) => {
 
-    const { username, password } = req.query
+    const { username, password } = req.body
 
     if (!username || !password) {
         return res.status(404).json({ message: "no password or login" });
@@ -24,7 +24,7 @@ regd_users.post("/login", (req, res) => {
 
     console.log(users.filter((user) => (user.username === username && user.password === password)).length)
 
-    if (users.filter((user) => (user.username === username && user.password === password)).length){
+    if (users.filter((user) => (user.username === username && user.password === password)).length) {
         let accessToken = jwt.sign({
             data: password
         }, 'access', { expiresIn: 60 * 60 });
@@ -40,6 +40,28 @@ regd_users.post("/login", (req, res) => {
 
 // Add a book review
 regd_users.put("/auth/review/:isbn", (req, res) => {
+
+    console.log(req.body)
+    const { reviewText } = req.body;
+    const isbn = req.params.isbn;
+    console.log(reviewText)
+    console.log(books[isbn])
+
+
+    jwt.verify(token, secret, (err, decoded) => {
+        if (err) {
+            // If the token is invalid or expired, return a forbidden status
+            return res.sendStatus(403); // Forbidden
+        }
+        console.log("deco:" + decoded)
+        books[isbn].reviews["John"] = {
+            "username": "John",
+            "review": "This is a review"
+          };
+
+
+    })
+
     //Write your code here
     return res.status(300).json({ message: "Yet to be implemented" });
 });

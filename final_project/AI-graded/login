@@ -2,3 +2,7 @@ theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/registe
 The user Jhon has been added!
 theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/register   -H "Content-Type: application/json"   -d '{"username": "Jhon", "password": "123456"}' ;
 Repeated username
+theia@theia-renebareno:/home/project$ curl -c cookies.txt -X POST http://localhost:5000/customer/login   -H "Content-Type: application/json"   -d '{"username": "", "password": "123456"}' ;
+{"message":"no password or login"}
+theia@theia-renebareno:/home/project$ curl -c cookies.txt -X POST http://localhost:5000/customer/login   -H "Content-Type: application/json"   -d '{"username": "Jhon", "password": "123456"}' ;
+User successfully logged in
