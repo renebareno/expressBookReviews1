@@ -92,7 +92,7 @@ async function getBookListAsync(queryString) {
 public_users.get('/async', async function (req, res) {
     try {
         const bookList = await getBookListAsync("");
-        res.json(bookList);
+        res.status(200).json(bookList);
     } catch (error) {
         console.error(error);
         res.status(404).json({ message: "Error retrieving book list" });
@@ -103,7 +103,7 @@ public_users.get('/async/isbn/:isbn', async function (req, res) {
     try {
         const isbn = req.params.isbn
         const bookList = await getBookListAsync("/isbn/" + isbn);
-        res.json(bookList);
+        res.status(200).json(bookList);
     } catch (error) {
         console.error(error);
         res.status(404).json({ message: "Error retrieving book by ISBN" });
@@ -115,7 +115,7 @@ public_users.get('/async/author/:author', async function (req, res) {
     try {
         const author = req.params.author
         const bookList = await getBookListAsync("/author/" + author);
-        res.json(bookList);
+        res.status(200).json(bookList);
     } catch (error) {
         console.error(error);
         res.status(404).json({ message: "Error retrieving books by author" });
@@ -126,7 +126,7 @@ public_users.get('/async/title/:title', async function (req, res) {
     try {
         const title = req.params.title
         const bookList = await getBookListAsync("/title/" + title);
-        res.json(bookList);
+        res.status(200).json(bookList);
     } catch (error) {
         console.error(error);
         res.status(404).json({ message: "Error retrieving books by title" });
