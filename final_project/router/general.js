@@ -106,7 +106,7 @@ public_users.get('/async/isbn/:isbn', async function (req, res) {
         res.json(bookList);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Error retrieving book list" });
+        res.status(500).json({ message: "Error retrieving book by ISBN" });
     }
 });
 
@@ -118,7 +118,7 @@ public_users.get('/async/author/:author', async function (req, res) {
         res.json(bookList);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Error retrieving book list" });
+        res.status(500).json({ message: "Error retrieving books by author" });
     }
 });
 
@@ -129,7 +129,7 @@ public_users.get('/async/title/:title', async function (req, res) {
         res.json(bookList);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Error retrieving book list" });
+        res.status(500).json({ message: "Error retrieving books by title" });
     }
 });
 
