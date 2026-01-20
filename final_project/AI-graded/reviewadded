@@ -4,4 +4,5 @@ User successfully logged
 intheia@theia-renebareno:/home/project/expressBookReviews1$ 
 
 theia@theia-renebareno:/home/project/expressBookReviews1$ curl -b cookies.txt -X PUT http://localhost:5000/customer/auth/review/1?review=siComoNo  -H "Content-Type: application/json" ;
-{"message":"Book updated:{\"author\":\"Chinua Achebe\",\"title\":\"Things Fall Apart\",\"reviews\":{\"Jhon\":{\"review\":\"siComoNo\"}}}"}theia@theia-renebareno:/home/project/expressBookReviews1$ 
+{"message":"Book updated:{\"author\":\"Chinua Achebe\",\"title\":\"Things Fall Apart\",\"reviews\":{\"Jhon\":{\"review\":\"siComoNo\"}}}"}
+theia@theia-renebareno:/home/project/expressBookReviews1$ 
