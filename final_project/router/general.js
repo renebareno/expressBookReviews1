@@ -8,7 +8,7 @@
  * Key Features:
  * - User registration with validation
  * - Synchronous and asynchronous book search
- * - Comprehensive error handling
+ * - Comprehensive error handling with edge case coverage
  * - Input validation middleware
  * - Rate limiting for async endpoints
  */
@@ -40,70 +40,154 @@ const URL = `http://${process.env.HOST || 'localhost'}:${process.env.PORT || 500
  * @param {Function} next - Express next middleware function
  */
 const validateRegistration = (req, res, next) => {
-    const { username, password } = req.body;
-    
-    // Check for missing required fields
-    if (!username || !password) {
-        return res.status(400).json({ 
-            error: "Missing required fields",
-            message: "Both username and password are required"
+    try {
+        const { username, password } = req.body;
+        
+        // EDGE CASE: Check if body is empty or undefined
+        if (!req.body || Object.keys(req.body).length === 0) {
+            return res.status(400).json({ 
+                error: "Empty request body",
+                message: "Request body cannot be empty"
+            });
+        }
+        
+        // Check for missing required fields
+        if (username === undefined || password === undefined) {
+            return res.status(400).json({ 
+                error: "Missing required fields",
+                message: "Both username and password are required"
+            });
+        }
+        
+        // Validate data types
+        if (typeof username !== 'string' || typeof password !== 'string') {
+            return res.status(400).json({ 
+                error: "Invalid data type",
+                message: "Username and password must be strings"
+            });
+        }
+        
+        // Trim and validate username
+        const trimmedUsername = username.trim();
+        if (trimmedUsername.length === 0) {
+            return res.status(400).json({ 
+                error: "Invalid username",
+                message: "Username cannot be empty or whitespace only"
+            });
+        }
+        
+        if (trimmedUsername.length < 3) {
+            return res.status(400).json({ 
+                error: "Invalid username",
+                message: "Username must be at least 3 characters long"
+            });
+        }
+        
+        // EDGE CASE: Check for excessive username length
+        if (trimmedUsername.length > 50) {
+            return res.status(400).json({ 
+                error: "Invalid username",
+                message: "Username must be less than 50 characters"
+            });
+        }
+        
+        // Validate password strength
+        if (password.length < 6) {
+            return res.status(400).json({ 
+                error: "Weak password",
+                message: "Password must be at least 6 characters long"
+            });
+        }
+        
+        // EDGE CASE: Check for common insecure passwords (basic check)
+        const commonPasswords = ['password', '123456', 'qwerty', 'letmein', 'welcome'];
+        if (commonPasswords.includes(password.toLowerCase())) {
+            return res.status(400).json({ 
+                error: "Insecure password",
+                message: "Please choose a stronger password"
+            });
+        }
+        
+        // EDGE CASE: Check for SQL injection patterns (basic)
+        const sqlInjectionPatterns = [';', '--', '/*', '*/', 'xp_'];
+        for (const pattern of sqlInjectionPatterns) {
+            if (trimmedUsername.includes(pattern) || password.includes(pattern)) {
+                return res.status(400).json({ 
+                    error: "Invalid input",
+                    message: "Input contains potentially harmful characters"
+                });
+            }
+        }
+        
+        // Attach trimmed username to request for use in route handler
+        req.trimmedUsername = trimmedUsername;
+        next();
+    } catch (error) {
+        console.error('Validation middleware error:', error);
+        res.status(500).json({ 
+            error: "Validation error",
+            message: "An error occurred during input validation"
         });
     }
-    
-    // Validate data types
-    if (typeof username !== 'string' || typeof password !== 'string') {
-        return res.status(400).json({ 
-            error: "Invalid data type",
-            message: "Username and password must be strings"
-        });
-    }
-    
-    // Validate username length
-    if (username.trim().length < 3) {
-        return res.status(400).json({ 
-            error: "Invalid username",
-            message: "Username must be at least 3 characters long"
-        });
-    }
-    
-    // Validate password strength
-    if (password.length < 6) {
-        return res.status(400).json({ 
-            error: "Weak password",
-            message: "Password must be at least 6 characters long"
-        });
-    }
-    
-    next();
 };
 
 /**
  * Validates ISBN parameter from route
- * Ensures ISBN is provided and is a string
+ * Ensures ISBN is provided and follows basic ISBN format rules
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  * @param {Function} next - Express next middleware function
  */
 const validateIsbn = (req, res, next) => {
-    const isbn = req.params.isbn;
-    
-    // Check if ISBN is provided
-    if (!isbn || isbn.trim() === '') {
-        return res.status(400).json({ 
-            error: "Missing ISBN",
-            message: "ISBN parameter is required"
+    try {
+        const isbn = req.params.isbn;
+        
+        // EDGE CASE: Check if ISBN parameter is missing
+        if (isbn === undefined) {
+            return res.status(400).json({ 
+                error: "Missing ISBN parameter",
+                message: "ISBN parameter is required in the URL"
+            });
+        }
+        
+        // Convert to string if it's a number
+        const isbnStr = String(isbn).trim();
+        
+        // EDGE CASE: Check for empty string after trimming
+        if (isbnStr === '') {
+            return res.status(400).json({ 
+                error: "Empty ISBN",
+                message: "ISBN cannot be empty or whitespace only"
+            });
+        }
+        
+        // EDGE CASE: Check for reasonable ISBN length
+        // ISBN-10: 10 digits, ISBN-13: 13 digits, allow for dashes
+        if (isbnStr.length > 17) { // ISBN-13 with dashes can be up to 17 chars
+            return res.status(400).json({ 
+                error: "Invalid ISBN length",
+                message: "ISBN is too long"
+            });
+        }
+        
+        // Basic ISBN format validation (allowing digits and dashes)
+        if (!/^[0-9\-]+$/.test(isbnStr)) {
+            return res.status(400).json({ 
+                error: "Invalid ISBN format",
+                message: "ISBN must contain only digits and hyphens"
+            });
+        }
+        
+        // Attach cleaned ISBN to request
+        req.cleanedIsbn = isbnStr;
+        next();
+    } catch (error) {
+        console.error('ISBN validation error:', error);
+        res.status(500).json({ 
+            error: "Validation error",
+            message: "An error occurred during ISBN validation"
         });
     }
-    
-    // Validate ISBN format
-    if (typeof isbn !== 'string') {
-        return res.status(400).json({ 
-            error: "Invalid ISBN format",
-            message: "ISBN must be a string"
-        });
-    }
-    
-    next();
 };
 
 /**
@@ -114,35 +198,69 @@ const validateIsbn = (req, res, next) => {
  * @param {Function} next - Express next middleware function
  */
 const validateSearchParams = (req, res, next) => {
-    // Determine which parameter we're validating (author or title)
-    const param = req.params.author || req.params.title;
-    const paramName = req.params.author ? 'author' : 'title';
-    
-    // Check if search parameter is provided
-    if (!param || param.trim() === '') {
-        return res.status(400).json({ 
-            error: "Missing search parameter",
-            message: `${paramName} parameter is required`
+    try {
+        // Determine which parameter we're validating (author or title)
+        const paramName = req.params.author ? 'author' : 'title';
+        const param = req.params[paramName];
+        
+        // EDGE CASE: Check if parameter is missing
+        if (param === undefined) {
+            return res.status(400).json({ 
+                error: "Missing search parameter",
+                message: `${paramName} parameter is required in the URL`
+            });
+        }
+        
+        // Convert to string if it's a number
+        const paramStr = String(param).trim();
+        
+        // EDGE CASE: Check for empty string after trimming
+        if (paramStr === '') {
+            return res.status(400).json({ 
+                error: "Empty search term",
+                message: `${paramName} cannot be empty or whitespace only`
+            });
+        }
+        
+        // EDGE CASE: Check for minimum search term length
+        if (paramStr.length < 2) {
+            return res.status(400).json({ 
+                error: "Search term too short",
+                message: `${paramName} must be at least 2 characters long`
+            });
+        }
+        
+        // Prevent extremely long search terms (DoS protection)
+        if (paramStr.length > 100) {
+            return res.status(400).json({ 
+                error: "Search term too long",
+                message: `${paramName} must be less than 100 characters`
+            });
+        }
+        
+        // EDGE CASE: Check for potentially malicious patterns
+        const maliciousPatterns = ['<script>', 'javascript:', 'onload=', 'onerror='];
+        const lowerParam = paramStr.toLowerCase();
+        for (const pattern of maliciousPatterns) {
+            if (lowerParam.includes(pattern)) {
+                return res.status(400).json({ 
+                    error: "Invalid search term",
+                    message: "Search term contains potentially harmful content"
+                });
+            }
+        }
+        
+        // Attach cleaned parameter to request
+        req.cleanedParam = paramStr;
+        req.paramName = paramName;
+        next();
+    } catch (error) {
+        console.error('Search parameter validation error:', error);
+        res.status(500).json({ 
+            error: "Validation error",
+            message: "An error occurred during search parameter validation"
         });
     }
-    
-    // Validate parameter type
-    if (typeof param !== 'string') {
-        return res.status(400).json({ 
-            error: "Invalid search parameter",
-            message: "Search parameter must be a string"
-        });
-    }
-    
-    // Prevent extremely long search terms (DoS protection)
-    if (param.length > 100) {
-        return res.status(400).json({ 
-            error: "Search term too long",
-            message: "Search term must be less than 100 characters"
-        });
-    }
-    
-    next();
 };
 
 /**
@@ -150,46 +268,76 @@ const validateSearchParams = (req, res, next) => {
  * USER REGISTRATION ENDPOINT
  * ============================================
  * Registers new users with validation and duplicate checking
- * Response Structure on Success:
- * {
- *   message: "User registered successfully",
- *   username: "registeredUsername"
- * }
  */
 public_users.post("/register", validateRegistration, (req, res) => {
     try {
-        const { username, password } = req.body;
-        const trimmedUsername = username.trim();
+        const { password } = req.body;
+        const trimmedUsername = req.trimmedUsername;
+        
+        // EDGE CASE: Check if users array exists and is valid
+        if (!Array.isArray(users)) {
+            console.error('Users array is not properly initialized');
+            return res.status(500).json({ 
+                error: "Server configuration error",
+                message: "User database is not available"
+            });
+        }
         
         // Check for duplicate username (case-insensitive comparison)
-        const userExists = users.some(u => u.username.toLowerCase() === trimmedUsername.toLowerCase());
+        const userExists = users.some(u => 
+            u.username && u.username.toLowerCase() === trimmedUsername.toLowerCase()
+        );
+        
         if (userExists) {
             return res.status(409).json({ 
                 error: "Username already exists",
-                message: `Username '${trimmedUsername}' is already taken`
+                message: `Username '${trimmedUsername}' is already taken`,
+                suggestion: "Please choose a different username"
+            });
+        }
+        
+        // EDGE CASE: Check maximum users limit (prevent memory exhaustion)
+        const MAX_USERS = 10000;
+        if (users.length >= MAX_USERS) {
+            return res.status(503).json({ 
+                error: "Service temporarily unavailable",
+                message: "User registration is currently at capacity"
             });
         }
         
         // Add new user to the users array
+        // NOTE: In production, password should be hashed before storing!
         users.push({
             "username": trimmedUsername,
-            "password": password // Note: In production, this should be hashed!
+            "password": password,
+            "createdAt": new Date().toISOString() // Track registration time
         });
         
-        // Log successful registration
-        console.log(`New user registered: ${trimmedUsername}`);
+        // Log successful registration (in production, use structured logging)
+        console.log(`New user registered: ${trimmedUsername} at ${new Date().toISOString()}`);
         
         // Return success response with 201 Created status
         res.status(201).json({ 
             message: "User registered successfully",
-            username: trimmedUsername
+            username: trimmedUsername,
+            registeredAt: new Date().toISOString()
         });
         
     } catch (error) {
         console.error('Registration error:', error);
+        
+        // EDGE CASE: Handle specific database/array errors
+        if (error instanceof TypeError && error.message.includes('users.push')) {
+            return res.status(500).json({ 
+                error: "Database error",
+                message: "Failed to save user data"
+            });
+        }
+        
         res.status(500).json({ 
             error: "Internal server error",
-            message: "Failed to register user. Please try again later."
+            message: "Failed to register user. Please try again later.",
+            requestId: Date.now().toString(36)
         });
     }
 });
@@ -203,182 +351,278 @@ public_users.post("/register", validateRegistration, (req, res) => {
 
 /**
  * GET / - Retrieve all books in the shop
- * Response Structure:
- * {
- *   count: number,
- *   books: { isbn1: {bookData}, isbn2: {bookData}, ... }
- * }
  */
 public_users.get('/', function (req, res) {
     try {
-        // Check if books database is empty
-        if (!books || Object.keys(books).length === 0) {
-            return res.status(404).json({ 
-                error: "No books available",
-                message: "The bookstore is currently empty"
+        // EDGE CASE: Check if books database is loaded
+        if (!books || typeof books !== 'object') {
+            console.error('Books database is not properly loaded');
+            return res.status(503).json({ 
+                error: "Service unavailable",
+                message: "Book database is not available. Please try again later."
+            });
+        }
+        
+        const bookCount = Object.keys(books).length;
+        
+        // EDGE CASE: Handle empty bookstore
+        if (bookCount === 0) {
+            return res.status(200).json({ 
+                message: "The bookstore is currently empty",
+                count: 0,
+                books: {}
+            });
+        }
+        
+        // EDGE CASE: Check for circular references or deep nesting
+        try {
+            // Test if books can be serialized to JSON
+            JSON.stringify(books);
+        } catch (serializeError) {
+            console.error('Books data contains circular references:', serializeError);
+            return res.status(500).json({ 
+                error: "Data serialization error",
+                message: "Unable to process book data"
             });
         }
         
         // Return all books with count
         return res.status(200).json({
-            count: Object.keys(books).length,
-            books: books
+            count: bookCount,
+            books: books,
+            retrievedAt: new Date().toISOString()
         });
     } catch (error) {
         console.error('Error retrieving book list:', error);
+        
+        // EDGE CASE: Handle specific error types
+        if (error instanceof RangeError && error.message.includes('Maximum call stack')) {
+            return res.status(500).json({ 
+                error: "Data processing error",
+                message: "Book data is too large or complex to process"
+            });
+        }
+        
         res.status(500).json({ 
             error: "Internal server error",
-            message: "Failed to retrieve book list. Please try again later."
+            message: "Failed to retrieve book list. Please try again later.",
+            requestId: Date.now().toString(36)
         });
     }
 });
 
 /**
  * GET /isbn/:isbn - Retrieve book details by ISBN
- * 
- * Filtering Process:
- * 1. Extract ISBN from route parameters
- * 2. Directly access book by ISBN key in the books object
- * 3. Return book data if found, 404 if not found
- * 
- * Response Structure on Success:
- * {
- *   isbn: "providedISBN",
- *   title: "Book Title",
- *   author: "Book Author",
- *   ...other book properties
- * }
  */
 public_users.get('/isbn/:isbn', validateIsbn, function (req, res) {
     try {
-        const isbn = req.params.isbn.trim();
-        const book = books[isbn];
+        const isbn = req.cleanedIsbn;
         
-        // Check if book exists with the given ISBN
+        // EDGE CASE: Check if books database exists
+        if (!books || typeof books !== 'object') {
+            return res.status(503).json({ 
+                error: "Service unavailable",
+                message: "Book database is not available"
+            });
+        }
+        
+        // Try to find book by ISBN (handle both with and without dashes)
+        let book = books[isbn];
+        
+        // EDGE CASE: Try alternative ISBN formats (without dashes)
         if (!book) {
-            return res.status(404).json({ 
+            const isbnWithoutDashes = isbn.replace(/-/g, '');
+            book = books[isbnWithoutDashes];
+        }
+        
+        // EDGE CASE: Check if book exists with the given ISBN
+        if (!book) {
+            // Provide suggestions for similar ISBNs
+            const similarIsbns = Object.keys(books).filter(key => 
+                key.includes(isbn.replace(/-/g, '').substring(0, 5))
+            ).slice(0, 3);
+            
+            const response = { 
                 error: "Book not found",
                 message: `No book found with ISBN: ${isbn}`,
                 suggestion: "Check the ISBN or browse all books at /"
+            };
+            
+            if (similarIsbns.length > 0) {
+                response.similarBooks = similarIsbns.map(isbn => ({
+                    isbn: isbn,
+                    title: books[isbn]?.title || 'Unknown Title'
+                }));
+            }
+            
+            return res.status(404).json(response);
+        }
+        
+        // EDGE CASE: Check if book data is valid
+        if (typeof book !== 'object' || book === null) {
+            console.error(`Invalid book data for ISBN ${isbn}:`, book);
+            return res.status(500).json({ 
+                error: "Data integrity error",
+                message: "Book data is corrupted"
             });
         }
         
         // Return book data with ISBN included in response
         return res.status(200).json({
             isbn: isbn,
-            ...book
+            ...book,
+            retrievedAt: new Date().toISOString()
         });
     } catch (error) {
         console.error(`Error retrieving book with ISBN ${req.params.isbn}:`, error);
+        
+        // EDGE CASE: Handle specific ISBN-related errors
+        if (error.message && error.message.includes('ISBN')) {
+            return res.status(400).json({ 
+                error: "ISBN processing error",
+                message: "Failed to process ISBN parameter"
+            });
+        }
+        
         res.status(500).json({ 
             error: "Internal server error",
-            message: "Failed to retrieve book details. Please try again later."
+            message: "Failed to retrieve book details. Please try again later.",
+            requestId: Date.now().toString(36)
         });
     }
 });
 
 /**
  * GET /author/:author - Retrieve books by author
- * 
- * Filtering Process:
- * 1. Extract author parameter from route and convert to lowercase for case-insensitive search
- * 2. Iterate through all books in the database
- * 3. For each book, convert author name to lowercase
- * 4. Use String.includes() to perform partial matching
- * 5. Collect matching books in an array with ISBN included
- * 
- * Response Structure on Success:
- * {
- *   count: number,
- *   searchTerm: "originalSearchTerm",
- *   books: [
- *     {
- *       isbn: "bookISBN",
- *       title: "Book Title",
- *       author: "Book Author",
- *       ...other properties
- *     },
- *     ...more matching books
- *   ]
- * }
  */
 public_users.get('/author/:author', validateSearchParams, function (req, res) {
     try {
-        const author = req.params.author.toLowerCase().trim();
+        const author = req.cleanedParam.toLowerCase();
         
-        // Edge case: empty search after trimming
-        if (author === '') {
-            return res.status(400).json({ 
-                error: "Invalid author name",
-                message: "Author name cannot be empty"
+        // EDGE CASE: Check if books database exists
+        if (!books || typeof books !== 'object') {
+            return res.status(503).json({ 
+                error: "Service unavailable",
+                message: "Book database is not available"
             });
         }
-
+        
         let filteredBooks = [];
+        let exactMatches = [];
+        let partialMatches = [];
         
         // Iterate through all books to find matches
         for (const key in books) {
-            let bookAuth = books[key].author.toLowerCase();
+            const book = books[key];
             
-            // Partial match: check if search term is included in book's author
-            if (bookAuth.includes(author)) {
-                filteredBooks.push({
-                    isbn: key, // Include ISBN for reference
-                    ...books[key] // Spread all book properties
+            // EDGE CASE: Skip invalid book entries
+            if (!book || typeof book !== 'object' || !book.author) {
+                console.warn(`Skipping invalid book entry for key: ${key}`);
+                continue;
+            }
+            
+            const bookAuth = book.author.toLowerCase();
+            
+            // Check for exact match (case-insensitive)
+            if (bookAuth === author) {
+                exactMatches.push({
+                    isbn: key,
+                    matchType: 'exact',
+                    ...book
+                });
+            }
+            // Check for partial match (author name contains search term)
+            else if (bookAuth.includes(author)) {
+                partialMatches.push({
+                    isbn: key,
+                    matchType: 'partial',
+                    ...book
                 });
             }
         }
         
-        // Handle case where no books are found
+        // Combine exact matches first, then partial matches
+        filteredBooks = [...exactMatches, ...partialMatches];
+        
+        // EDGE CASE: Handle case where no books are found
         if (filteredBooks.length === 0) {
-            return res.status(404).json({ 
+            // Provide suggestions based on similar author names
+            const allAuthors = new Set();
+            for (const key in books) {
+                if (books[key]?.author) {
+                    allAuthors.add(books[key].author.toLowerCase());
+                }
+            }
+            
+            // Find similar author names (Levenshtein distance would be better here)
+            const similarAuthors = Array.from(allAuthors).filter(a => 
+                a.includes(author.substring(0, Math.max(3, Math.floor(author.length / 2))))
+            ).slice(0, 5);
+            
+            const response = { 
                 error: "No books found",
-                message: `No books found by author: ${req.params.author}`,
+                message: `No books found by author: ${req.cleanedParam}`,
                 suggestion: "Try a different spelling or browse all books at /"
-            });
+            };
+            
+            if (similarAuthors.length > 0) {
+                response.suggestedAuthors = similarAuthors;
+            }
+            
+            return res.status(404).json(response);
+        }
+        
+        // EDGE CASE: Handle very large result sets
+        const MAX_RESULTS = 1000;
+        if (filteredBooks.length > MAX_RESULTS) {
+            console.warn(`Large result set for author search: ${filteredBooks.length} results`);
+            filteredBooks = filteredBooks.slice(0, MAX_RESULTS);
         }
         
         // Return matching books with metadata
         return res.status(200).json({
             count: filteredBooks.length,
-            searchTerm: req.params.author, // Return original (non-lowercased) term
-            books: filteredBooks
+            exactMatches: exactMatches.length,
+            partialMatches: partialMatches.length,
+            searchTerm: req.cleanedParam,
+            searchType: 'author',
+            books: filteredBooks,
+            retrievedAt: new Date().toISOString(),
+            ...(filteredBooks.length > MAX_RESULTS && {
+                warning: `Displaying first ${MAX_RESULTS} of ${filteredBooks.length} results`
+            })
         });
     } catch (error) {
-        console.error(`Error searching books by author ${req.params.author}:`, error);
+        console.error(`Error searching books by author ${req.cleanedParam}:`, error);
+        
+        // EDGE CASE: Handle memory errors for large datasets
+        if (error instanceof Error && error.message.includes('heap') || error.message.includes('memory')) {
+            return res.status(500).json({ 
+                error: "Memory limit exceeded",
+                message: "Search returned too many results. Please refine your search."
+            });
+        }
+        
         res.status(500).json({ 
             error: "Internal server error",
-            message: "Failed to search books. Please try again later."
+            message: "Failed to search books. Please try again later.",
+            requestId: Date.now().toString(36)
         });
     }
 });
 
 /**
  * GET /title/:title - Retrieve books by title
- * 
- * Filtering Process:
- * 1. Extract title parameter from route and convert to lowercase for case-insensitive search
- * 2. Iterate through all books in the database
- * 3. For each book, convert title to lowercase
- * 4. Use String.includes() to perform partial matching
- * 5. Collect matching books in an array with ISBN included
- * 
- * Response Structure on Success:
- * {
- *   count: number,
- *   searchTerm: "originalSearchTerm",
- *   books: [ {book1}, {book2}, ... ]
- * }
  */
 public_users.get('/title/:title', validateSearchParams, function (req, res) {
     try {
-        const title = req.params.title.toLowerCase().trim();
+        const title = req.cleanedParam.toLowerCase();
         
-        // Edge case: empty search after trimming
-        if (title === '') {
-            return res.status(400).json({ 
-                error: "Invalid title",
-                message: "Book title cannot be empty"
+        // EDGE CASE: Check if books database exists
+        if (!books || typeof books !== 'object') {
+            return res.status(503).json({ 
+                error: "Service unavailable",
+                message: "Book database is not available"
             });
         }
         
@@ -386,55 +630,77 @@ public_users.get('/title/:title', validateSearchParams, function (req, res) {
         
         // Iterate through all books to find matches
         for (const key in books) {
-            let bookTitle = books[key].title.toLowerCase();
+            const book = books[key];
             
-            // Partial match: check if search term is included in book's title
+            // EDGE CASE: Skip invalid book entries
+            if (!book || typeof book !== 'object' || !book.title) {
+                console.warn(`Skipping invalid book entry for key: ${key}`);
+                continue;
+            }
+            
+            const bookTitle = book.title.toLowerCase();
+            
+            // Check for match (title contains search term)
             if (bookTitle.includes(title)) {
+                // Calculate relevance score based on match position
+                const position = bookTitle.indexOf(title);
+                const relevanceScore = position === 0 ? 100 : 100 - position;
+                
                 filteredBooks.push({
-                    isbn: key, // Include ISBN for reference
-                    ...books[key] // Spread all book properties
+                    isbn: key,
+                    relevance: relevanceScore,
+                    ...book
                 });
             }
         }
         
-        // Handle case where no books are found
+        // Sort by relevance score (higher first)
+        filteredBooks.sort((a, b) => b.relevance - a.relevance);
+        
+        // EDGE CASE: Handle case where no books are found
         if (filteredBooks.length === 0) {
             return res.status(404).json({ 
                 error: "No books found",
-                message: `No books found with title: ${req.params.title}`,
+                message: `No books found with title containing: ${req.cleanedParam}`,
                 suggestion: "Try a different search term or browse all books at /"
             });
+        }
+        
+        // EDGE CASE: Handle very large result sets
+        const MAX_RESULTS = 1000;
+        if (filteredBooks.length > MAX_RESULTS) {
+            console.warn(`Large result set for title search: ${filteredBooks.length} results`);
+            filteredBooks = filteredBooks.slice(0, MAX_RESULTS);
         }
         
         // Return matching books with metadata
         return res.status(200).json({
             count: filteredBooks.length,
-            searchTerm: req.params.title, // Return original (non-lowercased) term
-            books: filteredBooks
+            searchTerm: req.cleanedParam,
+            searchType: 'title',
+            books: filteredBooks,
+            retrievedAt: new Date().toISOString(),
+            ...(filteredBooks.length > MAX_RESULTS && {
+                warning: `Displaying first ${MAX_RESULTS} of ${filteredBooks.length} results`
+            })
         });
     } catch (error) {
-        console.error(`Error searching books by title ${req.params.title}:`, error);
+        console.error(`Error searching books by title ${req.cleanedParam}:`, error);
+        
         res.status(500).json({ 
             error: "Internal server error",
-            message: "Failed to search books. Please try again later."
+            message: "Failed to search books. Please try again later.",
+            requestId: Date.now().toString(36)
         });
     }
 });
 
 /**
  * GET /review/:isbn - Retrieve reviews for a specific book
- * 
- * Response Structure on Success:
- * {
- *   isbn: "bookISBN",
- *   title: "Book Title",
- *   reviewCount: number,
- *   reviews: { reviewer1: "review", reviewer2: "review", ... }
- * }
  */
 public_users.get('/review/:isbn', validateIsbn, function (req, res) {
     try {
-        const isbn = req.params.isbn.trim();
+        const isbn = req.cleanedIsbn;
         const book = books[isbn];
         
         // Check if book exists
@@ -445,11 +711,37 @@ public_users.get('/review/:isbn', validateIsbn, function (req, res) {
             });
         }
         
-        // Check if book has reviews
-        if (!book.reviews || Object.keys(book.reviews).length === 0) {
-            return res.status(404).json({ 
-                error: "No reviews available",
-                message: `No reviews found for book: ${book.title}`,
+        // EDGE CASE: Check if book has reviews property
+        if (!book.reviews) {
+            return res.status(200).json({
+                isbn: isbn,
+                title: book.title || 'Unknown Title',
+                message: "This book has no reviews yet",
+                reviewCount: 0,
+                reviews: {},
+                suggestion: "Be the first to add a review!"
+            });
+        }
+        
+        // EDGE CASE: Check if reviews is a valid object
+        if (typeof book.reviews !== 'object' || book.reviews === null) {
+            console.error(`Invalid reviews data for ISBN ${isbn}:`, book.reviews);
+            return res.status(500).json({ 
+                error: "Data integrity error",
+                message: "Review data is corrupted"
+            });
+        }
+        
+        const reviewCount = Object.keys(book.reviews).length;
+        
+        // EDGE CASE: Handle empty reviews object
+        if (reviewCount === 0) {
+            return res.status(200).json({
+                isbn: isbn,
+                title: book.title || 'Unknown Title',
+                message: "This book has no reviews yet",
+                reviewCount: 0,
+                reviews: {},
                 suggestion: "Be the first to add a review!"
             });
         }
@@ -457,15 +749,18 @@ public_users.get('/review/:isbn', validateIsbn, function (req, res) {
         // Return reviews with book metadata
         return res.status(200).json({
             isbn: isbn,
-            title: book.title,
-            reviewCount: Object.keys(book.reviews).length,
-            reviews: book.reviews
+            title: book.title || 'Unknown Title',
+            reviewCount: reviewCount,
+            reviews: book.reviews,
+            retrievedAt: new Date().toISOString()
         });
     } catch (error) {
         console.error(`Error retrieving reviews for ISBN ${req.params.isbn}:`, error);
+        
         res.status(500).json({ 
             error: "Internal server error",
-            message: "Failed to retrieve reviews. Please try again later."
+            message: "Failed to retrieve reviews. Please try again later.",
+            requestId: Date.now().toString(36)
         });
     }
 });
@@ -475,36 +770,58 @@ public_users.get('/review/:isbn', validateIsbn, function (req, res) {
  * ASYNCHRONOUS HELPER FUNCTION
  * ============================================
  * Makes HTTP requests to the same server's synchronous endpoints
- * This demonstrates the async/await pattern with Axios
+ * This demonstrates the async/await pattern with Axios with comprehensive error handling
  */
 
 /**
  * Asynchronously fetches data from the server's endpoints
  * @param {string} queryString - The endpoint path to query
  * @returns {Promise<Object>} - The response data
- * 
- * Process Flow:
- * 1. Make HTTP GET request with timeout and status validation
- * 2. Check response status - throw error for 4xx/5xx responses
- * 3. Return parsed JSON data on success
- * 4. Handle network errors and timeouts
  */
 async function getBookListAsync(queryString) {
+    // EDGE CASE: Validate queryString
+    if (!queryString || typeof queryString !== 'string') {
+        throw new Error('Invalid query string provided');
+    }
+    
+    // EDGE CASE: Prevent excessively long query strings
+    if (queryString.length > 500) {
+        throw new Error('Query string is too long');
+    }
+    
     try {
         const response = await axios.get(URL + queryString, {
-            timeout: 10000, // 10 second timeout to prevent hanging requests
+            timeout: 10000, // 10 second timeout
+            maxRedirects: 3, // Prevent infinite redirects
+            maxContentLength: 50 * 1024 * 1024, // 50MB max response size
             validateStatus: function (status) {
                 // Accept both successful (2xx) and client error (4xx) responses
-                // We want to handle 404s differently than network errors
                 return status >= 200 && status < 500;
+            },
+            headers: {
+                'User-Agent': 'expressBookReviews/1.0',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
             }
         });
+        
+        // EDGE CASE: Check for empty response
+        if (!response.data) {
+            throw new Error('Empty response received from server');
+        }
+        
+        // EDGE CASE: Check for very large response
+        const responseSize = JSON.stringify(response.data).length;
+        if (responseSize > 10 * 1024 * 1024) { // 10MB
+            console.warn(`Large response received: ${responseSize} bytes`);
+        }
         
         // Check for client error responses (4xx)
         if (response.status >= 400) {
             const error = new Error(`HTTP ${response.status}: ${response.data?.error || 'Request failed'}`);
             error.status = response.status;
             error.data = response.data;
+            error.isHttpError = true;
             throw error;
         }
         
@@ -514,12 +831,34 @@ async function getBookListAsync(queryString) {
         
         // Enhance error messages for common network issues
         if (error.code === 'ECONNREFUSED') {
-            error.message = 'Unable to connect to the server';
+            error.message = 'Unable to connect to the server. The service might be down.';
+            error.isConnectionError = true;
         } else if (error.code === 'ETIMEDOUT') {
-            error.message = 'Request timed out';
+            error.message = 'Request timed out after 10 seconds. The server might be overloaded.';
+            error.isTimeoutError = true;
+        } else if (error.code === 'ENOTFOUND') {
+            error.message = 'Server host not found. Please check the server configuration.';
+            error.isDnsError = true;
+        } else if (error.response) {
+            // The request was made and the server responded with a status code
+            // that falls out of the range of 2xx
+            error.isHttpError = true;
+            error.status = error.response.status;
+            error.data = error.response.data;
+        } else if (error.request) {
+            // The request was made but no response was received
+            error.message = 'No response received from server';
+            error.isNetworkError = true;
         }
         
-        throw error; // Re-throw for route handler to catch
+        // Add context to error
+        error.context = {
+            url: URL + queryString,
+            timestamp: new Date().toISOString(),
+            query: queryString
+        };
+        
+        throw error;
     }
 }
 
@@ -527,108 +866,174 @@ async function getBookListAsync(queryString) {
  * ============================================
  * RATE LIMITING FOR ASYNC ENDPOINTS
  * ============================================
- * Basic in-memory rate limiting to prevent abuse
- * Tracks requests per IP address within a 1-minute window
+ * Enhanced rate limiting with cleanup mechanism
  */
 
 const asyncRequestCounts = new Map();
 const ASYNC_RATE_LIMIT = 100; // Maximum requests per minute per IP
+const RATE_LIMIT_WINDOW = 60000; // 1 minute in milliseconds
+
+// Cleanup old entries every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    const cutoff = now - RATE_LIMIT_WINDOW;
+    
+    for (const [ip, requests] of asyncRequestCounts.entries()) {
+        const filteredRequests = requests.filter(time => time > cutoff);
+        if (filteredRequests.length === 0) {
+            asyncRequestCounts.delete(ip);
+        } else {
+            asyncRequestCounts.set(ip, filteredRequests);
+        }
+    }
+}, 5 * 60000); // 5 minutes
 
 /**
  * Rate limiting middleware for async endpoints
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
  */
 const checkRateLimit = (req, res, next) => {
-    const clientIP = req.ip || req.connection.remoteAddress;
-    const now = Date.now();
-    const oneMinuteAgo = now - 60000;
-    
-    // Get existing requests for this IP
-    let requests = asyncRequestCounts.get(clientIP) || [];
-    
-    // Filter out old requests (older than 1 minute)
-    requests = requests.filter(time => time > oneMinuteAgo);
-    
-    // Check if rate limit is exceeded
-    if (requests.length >= ASYNC_RATE_LIMIT) {
-        return res.status(429).json({
-            error: "Too many requests",
-            message: "Rate limit exceeded. Please try again later."
+    try {
+        const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+        const now = Date.now();
+        const cutoff = now - RATE_LIMIT_WINDOW;
+        
+        // Get existing requests for this IP
+        let requests = asyncRequestCounts.get(clientIP) || [];
+        
+        // Filter out old requests
+        requests = requests.filter(time => time > cutoff);
+        
+        // Check if rate limit is exceeded
+        if (requests.length >= ASYNC_RATE_LIMIT) {
+            // Calculate when the user can try again
+            const oldestRequest = Math.min(...requests);
+            const retryAfter = Math.ceil((oldestRequest + RATE_LIMIT_WINDOW - now) / 1000);
+            
+            return res.status(429).set('Retry-After', retryAfter).json({
+                error: "Too many requests",
+                message: `Rate limit exceeded. Please try again in ${retryAfter} seconds.`,
+                limit: ASYNC_RATE_LIMIT,
+                window: "1 minute",
+                retryAfter: retryAfter
+            });
+        }
+        
+        // Add current request timestamp and update map
+        requests.push(now);
+        asyncRequestCounts.set(clientIP, requests);
+        
+        // Add rate limit headers to response
+        res.set({
+            'X-RateLimit-Limit': ASYNC_RATE_LIMIT,
+            'X-RateLimit-Remaining': ASYNC_RATE_LIMIT - requests.length,
+            'X-RateLimit-Reset': Math.ceil((now + RATE_LIMIT_WINDOW) / 1000)
         });
+        
+        next();
+    } catch (error) {
+        console.error('Rate limiting error:', error);
+        // If rate limiting fails, allow the request to proceed
+        next();
     }
-    
-    // Add current request timestamp and update map
-    requests.push(now);
-    asyncRequestCounts.set(clientIP, requests);
-    next();
 };
 
 /**
  * ============================================
  * ASYNCHRONOUS BOOK RETRIEVAL ENDPOINTS
  * ============================================
- * These endpoints use async/await to call the synchronous endpoints
- * via HTTP, demonstrating asynchronous programming patterns
- * 
- * Note: These endpoints are essentially wrappers around the synchronous
- * endpoints, useful for demonstrating async patterns or for when the
- * data source might be external or require asynchronous operations.
+ * Enhanced with comprehensive error handling and edge case coverage
  */
 
 /**
  * GET /async - Asynchronously retrieve all books
- * This endpoint demonstrates the async/await pattern by making
- * an HTTP request to the same server's root endpoint
  */
 public_users.get('/async', checkRateLimit, async function (req, res) {
     try {
         const bookList = await getBookListAsync("");
-        res.status(200).json(bookList);
+        
+        // EDGE CASE: Validate response structure
+        if (!bookList || typeof bookList !== 'object') {
+            throw new Error('Invalid response format received from server');
+        }
+        
+        res.status(200).json({
+            ...bookList,
+            retrievedVia: 'async',
+            serverTimestamp: new Date().toISOString()
+        });
     } catch (error) {
         console.error('Error in /async route:', error);
         
-        // Use status from error if available (e.g., 404 from getBookListAsync)
-        if (error.status) {
-            return res.status(error.status).json(error.data || { 
-                error: "Request failed",
-                message: error.message 
+        // Handle different error types with appropriate responses
+        if (error.isConnectionError || error.isTimeoutError) {
+            return res.status(503).json({ 
+                error: "Service unavailable",
+                message: error.message,
+                suggestion: "Please try again in a few moments"
             });
         }
         
-        // Generic server error for unexpected issues
+        if (error.isHttpError && error.status) {
+            return res.status(error.status).json({
+                ...error.data,
+                retrievedVia: 'async',
+                errorOccurred: true
+            });
+        }
+        
         res.status(500).json({ 
             error: "Internal server error",
-            message: "Failed to retrieve book list. The service might be temporarily unavailable."
+            message: "Failed to retrieve book list. Please try again later.",
+            requestId: Date.now().toString(36),
+            retrievedVia: 'async'
         });
     }
 });
 
 /**
  * GET /async/isbn/:isbn - Asynchronously retrieve book by ISBN
- * This demonstrates error propagation from the async helper function
  */
 public_users.get('/async/isbn/:isbn', checkRateLimit, validateIsbn, async function (req, res) {
     try {
-        const isbn = req.params.isbn;
-        const encodedIsbn = encodeURIComponent(isbn); // Encode special characters
+        const isbn = req.cleanedIsbn;
+        const encodedIsbn = encodeURIComponent(isbn);
         const book = await getBookListAsync("/isbn/" + encodedIsbn);
         
-        res.status(200).json(book);
-    } catch (error) {
-        console.error(`Error in /async/isbn/${req.params.isbn}:`, error);
+        // EDGE CASE: Check if book data is valid
+        if (!book || typeof book !== 'object') {
+            throw new Error('Invalid book data received');
+        }
         
-        if (error.status) {
-            return res.status(error.status).json(error.data || { 
-                error: "Request failed",
-                message: error.message 
+        res.status(200).json({
+            ...book,
+            retrievedVia: 'async',
+            serverTimestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error(`Error in /async/isbn/${req.cleanedIsbn}:`, error);
+        
+        if (error.isHttpError && error.status === 404) {
+            return res.status(404).json({
+                error: "Book not found",
+                message: `No book found with ISBN: ${req.cleanedIsbn}`,
+                retrievedVia: 'async',
+                suggestion: "Check the ISBN or try the synchronous endpoint"
+            });
+        }
+        
+        if (error.isConnectionError) {
+            return res.status(503).json({ 
+                error: "Service unavailable",
+                message: "Cannot connect to book database",
+                retrievedVia: 'async'
             });
         }
         
         res.status(500).json({ 
-            error: "Service unavailable",
-            message: "Failed to retrieve book details. Please try again later."
+            error: "Internal server error",
+            message: "Failed to retrieve book by ISBN. Please try again later.",
+            requestId: Date.now().toString(36),
+            retrievedVia: 'async'
         });
     }
 });
@@ -636,98 +1041,27 @@ public_users.get('/async/isbn/:isbn', checkRateLimit, validateIsbn, async functi
 /**
  * GET /async/author/:author - Asynchronously retrieve books by author
  * 
- * This endpoint specifically demonstrates:
- * 1. Async/await pattern with Axios for HTTP requests
- * 2. Proper error handling for network issues and HTTP errors
- * 3. Encoding of URL parameters to handle special characters
- * 4. Rate limiting to prevent abuse
- * 
- * The filtering logic is handled by the synchronous /author/:author endpoint,
- * which is called internally via HTTP. This separation allows for:
- * - Code reuse (same filtering logic)
- * - Independent scaling of async operations
- * - Demonstration of microservices-like architecture
+ * This endpoint demonstrates robust async/await pattern with Axios,
+ * handling various edge cases and providing comprehensive error responses.
  */
 public_users.get('/async/author/:author', checkRateLimit, validateSearchParams, async function (req, res) {
     try {
-        const author = req.params.author;
-        const encodedAuthor = encodeURIComponent(author); // Encode for URL safety
+        const author = req.cleanedParam;
+        const encodedAuthor = encodeURIComponent(author);
+        
+        // EDGE CASE: Check for special characters that might cause issues
+        if (encodedAuthor.length > 200) {
+            return res.status(400).json({
+                error: "Invalid author name",
+                message: "Author name is too long or contains too many special characters",
+                retrievedVia: 'async'
+            });
+        }
         
         // Make asynchronous HTTP request to the synchronous author endpoint
         const books = await getBookListAsync("/author/" + encodedAuthor);
         
-        // Return the filtered books from the synchronous endpoint
-        res.status(200).json(books);
-    } catch (error) {
-        console.error(`Error in /async/author/${req.params.author}:`, error);
-        
-        // Handle different types of errors appropriately
-        if (error.status) {
-            // Error from getBookListAsync (e.g., 404, 400)
-            return res.status(error.status).json(error.data || { 
-                error: "Request failed",
-                message: error.message 
-            });
+        // EDGE CASE: Validate response structure
+        if (!books || typeof books !== 'object') {
+            throw new Error('Invalid response received from server');
         }
-        
-        // Network or server errors
-        res.status(500).json({ 
-            error: "Service unavailable",
-            message: "Failed to search books by author. Please try again later."
-        });
-    }
-});
-
-/**
- * GET /async/title/:title - Asynchronously retrieve books by title
- */
-public_users.get('/async/title/:title', checkRateLimit, validateSearchParams, async function (req, res) {
-    try {
-        const title = req.params.title;
-        const encodedTitle = encodeURIComponent(title);
-        const books = await getBookListAsync("/title/" + encodedTitle);
-        
-        res.status(200).json(books);
-    } catch (error) {
-        console.error(`Error in /async/title/${req.params.title}:`, error);
-        
-        if (error.status) {
-            return res.status(error.status).json(error.data || { 
-                error: "Request failed",
-                message: error.message 
-            });
-        }
-        
-        res.status(500).json({ 
-            error: "Service unavailable",
-            message: "Failed to search books by title. Please try again later."
-        });
-    }
-});
-
-/**
- * ============================================
- * GLOBAL ERROR HANDLER
- * ============================================
- * Catches any unhandled errors in this router
- * Provides a consistent error response format
- */
-public_users.use((err, req, res, next) => {
-    console.error('Unhandled error in public_users router:', err);
-    
-    // Don't send headers if they've already been sent
-    if (res.headersSent) {
-        return next(err);
-    }
-    
-    // Generate a simple request ID for debugging
-    const requestId = req.id || Date.now().toString(36) + Math.random().toString(36).substr(2);
-    
-    res.status(500).json({
-        error: "Internal server error",
-        message: "An unexpected error occurred",
-        requestId: requestId
-    });
-});
-
-module.exports.general = public_users;
