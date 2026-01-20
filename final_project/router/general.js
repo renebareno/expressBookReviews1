@@ -1,4 +1,5 @@
 const express = require('express');
+const axios = require('axios')
 let books = require("./booksdb.js");
 let isValid = require("./auth_users.js").isValid;
 let users = require("./auth_users.js").users;
@@ -73,5 +74,45 @@ public_users.get('/review/:isbn',function (req, res) {
     const isbn =req.params.isbn
     return res.status(200).json(JSON.stringify(books[isbn].reviews));
 });
+
+/*
+curl -X POST http://localhost:5000/async \
+*/
+const URL = 'http://localhost:5000'
+async function getBookListAsync(queryString) {
+  try {
+    console.log(URL+queryString)
+    const response = await axios.get(URL+queryString);
+    return response.data;
+  } catch (error) {
+    console.log(error.URL); // Re-throw the error for handling in the route
+  }
+}
+
+//Task-10 With Async
+public_users.get('/async', async function (req, res) {
+  try {
+    const bookList = await getBookListAsync("");
+    res.json(bookList);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error retrieving book list" });
+  }
+});
+
+//Task-10 With Async
+public_users.get('/async/isbn/:isbn', async function (req, res) {
+    try {
+      const isbn =req.params.isbn
+      const bookList = await getBookListAsync("/isbn/"+isbn);
+      res.json(bookList);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error retrieving book list" });
+    }
+  });
+  
+
+
 
 module.exports.general = public_users;

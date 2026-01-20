@@ -1,0 +1,12 @@
+theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/register   -H "Content-Type: application/json"   -d '{"username": "Jhon", "password": "123456"}' ; curl -X POST http://localhost:5000/register   -H "Content-Type: application/json"   -d '{"username": "Will", "password": "123456"}' ; curl -c cookies.txt -X POST http://localhost:5000/customer/login   -H "Content-Type: application/json"   -d '{"username": "Jhon", "password": "123456"}' ;
+The user Jhon has been added!The user Will has been added!User successfully logged inthe
+theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/register   -H "Content-Type: application/json"   -d '{"username": "Jhon", "password": "123456"}' ; curl -X POST http://localhost:5000/register   -H "Content-Type: application/json"   -d '{"username": "Will", "password": "123456"}' ; curl -c cookies.txt -X POST http://localhost:5000/customer/login   -H "Content-Type: application/json"   -d '{"username": "Jhon", "password": "123456"}' ;
+The user Jhon has been added!The user Will has been added!User successfully logged in
+theia@theia-renebareno:/home/project$ 
+theia@theia-renebareno:/home/project$ curl -b cookies.txt -X PUT http://localhost:5000/customer/auth/review/1  -H "Content-Type: application/json"   -d '{"reviewText": "holi"}' ;
+{"message":"Book updated:{\"author\":\"Chinua Achebe\",\"title\":\"Things Fall Apart\",\"reviews\":{\"Jhon\":{}}}"}
+
+theia@theia-renebareno:/home/project$ curl -b cookies.txt -X DELETE http://localhost:5000/customer/auth/review/1  -H "Content-Type: application/json"   -d '{"reviewText": "holi"}' ;
+{"message":"Review deleted"}
+theia@theia-renebareno:/home/project$ curl -b cookies.txt -X DELETE http://localhost:5000/customer/auth/review/1  -H "Content-Type: application/json"   -d '{"reviewText": "holi"}' ;
+{"message":"Review not found"}
