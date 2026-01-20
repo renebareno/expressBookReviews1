@@ -1,0 +1,7 @@
+theia@theia-renebareno:/home/project/expressBookReviews1$ curl -X POST http://localhost:5000/register   -H "Content-Type: application/json"   -d '{"username": "Jhon", "password": "123456"}' ;curl -c cookies.txt -X POST http://localhost:5000/customer/login   -H "Content-Type: application/json"   -d '{"username": "Jhon", "password": "123456"}' ;
+The user Jhon has been added!
+User successfully logged 
+intheia@theia-renebareno:/home/project/expressBookReviews1$ 
+
+theia@theia-renebareno:/home/project/expressBookReviews1$ curl -b cookies.txt -X PUT http://localhost:5000/customer/auth/review/1?review=siComoNo  -H "Content-Type: application/json" ;
+{"message":"Book updated:{\"author\":\"Chinua Achebe\",\"title\":\"Things Fall Apart\",\"reviews\":{\"Jhon\":{\"review\":\"siComoNo\"}}}"}theia@theia-renebareno:/home/project/expressBookReviews1$ 
