@@ -1,4 +1,4 @@
-theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/register   -H "Conapplication/json"   -d '{"username": "hol", "password": "1234"}'
+theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/register   -H "Content-Type: application/json"   -d '{"username": "hol", "password": "1234"}'
 User successfully registered. Now you can login
 
 theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/rapplication/json"   -d '{"username": "hol", "password": "1234"}'
@@ -7,5 +7,5 @@ User register failed. Username is repeated.
 theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/register   -H "Content-Type: application/json"   -d '{"username": "", "password": "123456"}'
 User register failed. Username name not provided.
 
-theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/register   -H "Conapplication/json"   -d '{"username": "hol", "password": ""}'
+theia@theia-renebareno:/home/project$ curl -X POST http://localhost:5000/register   -H "Content-Type: application/json"   -d '{"username": "hol", "password": ""}'
 User register failed. password name not provided.
